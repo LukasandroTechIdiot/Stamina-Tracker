@@ -132,7 +132,18 @@ function App() {
               </label>
 
               {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
-                <p>Full at: {new Date(saved.fullAt).toLocaleString()}</p>
+                <p>
+                  Full at:{" "}
+                  {new Date(saved.fullAt).toLocaleString("de-DE", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  })}{" "}
+                  Uhr
+                </p>
               )}
             </div>
           );
@@ -143,5 +154,3 @@ function App() {
 }
 
 export default App;
-
-
