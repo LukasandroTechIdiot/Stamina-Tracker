@@ -47,4 +47,77 @@ function App() {
   });
 
   const handleChange = (gameName, value) => {
-    const game = games.find((g) => g.name === g
+    const game = games.find((g) => g.name === gameName);
+    const now = new Date().toISOString();
+    const intValue = parseInt(value);
+
+    if (!isNaN(intValue) && intValue < game.max) {
+      const fullAt = calculateFullAt(intValue, game.max, game.regenMin, now);
+      setValues({
+        ...values,
+        [gameName]: {
+          value: intValue,
+          timestamp: now,
+          fullAt,
+        },
+      });
+    } else {
+      // Clear entry if value is invalid
+      setValues({
+        ...values,
+        [gameName]: {
+          value: "",
+          timestamp: "",
+          fullAt: "",
+        },
+      });
+    }
+  };
+
+  useEffect(() => {
+    localStorage.setItem("stamina-values-fixed", JSON.stringify(values));
+  }, [values]);
+
+  return (
+    <div style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
+      <h1>Multi-Game Stamina Tracker</h1>
+      <div style={{ display: "grid", gap: "1rem" }}>
+        {games.map((game) => {
+          const saved = values[game.name];
+          const parsed = parseInt(saved?.value);
+
+          return (
+            <div
+              key={game.name}
+              style={{
+                border: "1px solid #ccc",
+                borderRadius: "8px",
+                padding: "1rem",
+              }}
+            >
+              <label>
+                <strong>{game.name}</strong>
+                <input
+                  type="number"
+                  placeholder={`Current (max ${game.max})`}
+                  value={saved?.value}
+                  onChange={(e) => handleChange(game.name, e.target.value)}
+                  style={{ marginLeft: "1rem", padding: "0.5rem" }}
+                />
+              </label>
+
+              {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
+                <>
+                  <p>Entered at: {new Date(saved.timestamp).toLocaleString()}</p>
+                  <p>Full at: {new Date(saved.fullAt).toLocaleString()}</p>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default App;
