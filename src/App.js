@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 
 const defaultGames = [
   { name: "Genshin Impact", max: 200, regenMin: 8 },
-  { name: "Honkai Star Rail", max: 300, regenMin: 6 },
-  { name: "Haikyu Fly High", max: 200, regenMin: 5 },
   { name: "JJK Phantom Parade", max: 200, regenMin: 3 },
+  { name: "Haikyu Fly High", max: 200, regenMin: 5 },
+  { name: "Honkai Star Rail", max: 300, regenMin: 6 },
   { name: "Wuthering Waves", max: 240, regenMin: 6 },
 ];
 
@@ -42,14 +42,19 @@ function App() {
     const saved = localStorage.getItem("stamina-values");
     return saved
       ? JSON.parse(saved)
-      : defaultGames.reduce((acc, game) => {
+      : games.reduce((acc, game) => {
           acc[game.name] = { value: "", timestamp: "", fullAt: "" };
           return acc;
         }, {});
   });
 
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
-  const [language, setLanguage] = useState(() => localStorage.getItem("language") || "en");
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "light";
+  });
+
+  const [language, setLanguage] = useState(() => {
+    return localStorage.getItem("language") || "en";
+  });
 
   const [newGame, setNewGame] = useState({ name: "", max: "", regenMin: "" });
 
@@ -83,35 +88,31 @@ function App() {
     }
   };
 
-  const handleAddGame = () => {
-    const { name, max, regenMin } = newGame;
-    if (!name || isNaN(max) || isNaN(regenMin)) return;
-    const gameObj = { name, max: parseInt(max), regenMin: parseInt(regenMin) };
-    const updated = [...games, gameObj];
-    setGames(updated);
-    localStorage.setItem("custom-games", JSON.stringify(updated));
-    setNewGame({ name: "", max: "", regenMin: "" });
-  };
-
-  const handleRemoveGame = (gameName) => {
-    const updatedGames = games.filter((g) => g.name !== gameName);
-    setGames(updatedGames);
-    localStorage.setItem("custom-games", JSON.stringify(updatedGames));
-
-    const updatedValues = { ...values };
-    delete updatedValues[gameName];
-    setValues(updatedValues);
-  };
-
   const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
   const toggleLanguage = () => setLanguage((prev) => (prev === "en" ? "de" : "en"));
-
   const resetAll = () => {
     const resetValues = games.reduce((acc, game) => {
       acc[game.name] = { value: "", timestamp: "", fullAt: "" };
       return acc;
     }, {});
     setValues(resetValues);
+  };
+
+  const addGame = () => {
+    const { name, max, regenMin } = newGame;
+    if (!name || isNaN(parseInt(max)) || isNaN(parseInt(regenMin))) return;
+    const updatedGames = [...games, { name, max: parseInt(max), regenMin: parseInt(regenMin) }];
+    setGames(updatedGames);
+    setValues({ ...values, [name]: { value: "", timestamp: "", fullAt: "" } });
+    setNewGame({ name: "", max: "", regenMin: "" });
+  };
+
+  const removeGame = (name) => {
+    const updatedGames = games.filter((g) => g.name !== name);
+    setGames(updatedGames);
+    const updatedValues = { ...values };
+    delete updatedValues[name];
+    setValues(updatedValues);
   };
 
   useEffect(() => {
@@ -125,6 +126,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem("language", language);
   }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem("custom-games", JSON.stringify(games));
+  }, [games]);
 
   return (
     <div
@@ -145,10 +150,9 @@ function App() {
         </div>
       </div>
 
-      <div style={{ marginTop: "2rem" }}>
-        <h3>{isGerman ? "Eigenes Spiel hinzufügen" : "Add Custom Game"}</h3>
+      <div style={{ display: "flex", gap: "1rem", marginTop: "2rem", flexWrap: "wrap" }}>
         <input
-          placeholder={isGerman ? "Name" : "Name"}
+          placeholder={isGerman ? "Spielname" : "Game Name"}
           value={newGame.name}
           onChange={(e) => setNewGame({ ...newGame, name: e.target.value })}
         />
@@ -159,17 +163,17 @@ function App() {
           onChange={(e) => setNewGame({ ...newGame, max: e.target.value })}
         />
         <input
-          placeholder={isGerman ? "Min / Punkt" : "Min per Point"}
+          placeholder={isGerman ? "Min / Punkt" : "Min / Point"}
           type="number"
           value={newGame.regenMin}
           onChange={(e) => setNewGame({ ...newGame, regenMin: e.target.value })}
         />
-        <button onClick={handleAddGame}>{isGerman ? "Hinzufügen" : "Add"}</button>
+        <button onClick={addGame}>{isGerman ? "Hinzufügen" : "Add Game"}</button>
       </div>
 
       <div style={{ display: "grid", gap: "1rem", marginTop: "2rem" }}>
         {games.map((game) => {
-          const saved = values[game.name] || {};
+          const saved = values[game.name];
           const parsed = parseInt(saved?.value);
 
           return (
@@ -182,43 +186,44 @@ function App() {
                 backgroundColor: isDark ? "#1e1e1e" : "#f9f9f9",
               }}
             >
-              <label>
-                <strong>{game.name}</strong>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{game.name}</span>
+                <button onClick={() => removeGame(game.name)}>❌</button>
+              </div>
+
+              <div style={{ marginTop: "0.5rem" }}>
                 <input
                   type="number"
                   placeholder={`Max ${game.max}`}
-                  value={saved?.value || ""}
+                  value={saved?.value}
                   onChange={(e) => handleChange(game.name, e.target.value)}
                   style={{
-                    marginLeft: "1rem",
                     padding: "0.5rem",
                     backgroundColor: isDark ? "#2a2a2a" : "#fff",
                     color: isDark ? "#fff" : "#000",
                     border: `1px solid ${isDark ? "#555" : "#ccc"}`,
                     borderRadius: "4px",
+                    width: "100%",
                   }}
                 />
-              </label>
-              <button onClick={() => handleRemoveGame(game.name)} style={{ marginLeft: "1rem" }}>
-                ❌
-              </button>
 
-              {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
-                <>
-                  <p>
-                    {isGerman ? "Voll um: " : "Full at: "}
-                    {new Date(saved.fullAt).toLocaleString("de-DE", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: false,
-                    })} Uhr
-                  </p>
-                  <p>{formatTimeUntil(saved.fullAt, language)}</p>
-                </>
-              )}
+                {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
+                  <div style={{ marginTop: "0.5rem", fontFamily: "monospace", lineHeight: "1.4" }}>
+                    <div>
+                      {isGerman ? "Voll um: " : "Full at: "}
+                      {new Date(saved.fullAt).toLocaleString("de-DE", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })} Uhr
+                    </div>
+                    <div>{formatTimeUntil(saved.fullAt, language)}</div>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
