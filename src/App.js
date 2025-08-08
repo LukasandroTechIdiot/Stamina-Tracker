@@ -26,9 +26,9 @@ function formatTimeUntil(fullAt, lang) {
   const minutes = totalMinutes % 60;
 
   if (lang === "de") {
-    return `Voll in: ${hours} h ${minutes} min`;
+    return Voll in: ${hours} h ${minutes} min;
   } else {
-    return `Time until full: ${hours} h ${minutes} min`;
+    return Time until full: ${hours} h ${minutes} min;
   }
 }
 
@@ -105,16 +105,6 @@ function App() {
     localStorage.setItem("language", language);
   }, [language]);
 
-  const moveGame = (index, direction) => {
-  const newGames = [...games];
-  const targetIndex = index + direction;
-
-  if (targetIndex < 0 || targetIndex >= games.length) return;
-
-  [newGames[index], newGames[targetIndex]] = [newGames[targetIndex], newGames[index]];
-  setGames(newGames);
-};
-
   return (
     <div
       style={{
@@ -143,7 +133,7 @@ function App() {
             <div
               key={game.name}
               style={{
-                border: `1px solid ${isDark ? "#444" : "#ccc"}`,
+                border: 1px solid ${isDark ? "#444" : "#ccc"},
                 borderRadius: "8px",
                 padding: "1rem",
                 backgroundColor: isDark ? "#1e1e1e" : "#f9f9f9",
@@ -153,7 +143,7 @@ function App() {
                 <strong>{game.name}</strong>
                 <input
                   type="number"
-                  placeholder={`Max ${game.max}`}
+                  placeholder={Max ${game.max}}
                   value={saved?.value}
                   onChange={(e) => handleChange(game.name, e.target.value)}
                   style={{
@@ -161,7 +151,7 @@ function App() {
                     padding: "0.5rem",
                     backgroundColor: isDark ? "#2a2a2a" : "#fff",
                     color: isDark ? "#fff" : "#000",
-                    border: `1px solid ${isDark ? "#555" : "#ccc"}`,
+                    border: 1px solid ${isDark ? "#555" : "#ccc"},
                     borderRadius: "4px",
                   }}
                 />
@@ -191,5 +181,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
