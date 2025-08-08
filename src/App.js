@@ -28,30 +28,43 @@ const games = [
   },
 ];
 
-function calculateFullTime(current, max, regenMin) {
-  const missing = max - current;
+function calculateFullTime(current, max, regenMin, lastUpdated) {
   const now = new Date();
+  const minutesPassed = (now - new Date(lastUpdated)) / 60000;
+  const regenAmount = Math.floor(minutesPassed / regenMin);
+  const updatedCurrent = Math.min(current + regenAmount, max);
+  const missing = max - updatedCurrent;
   const fullTime = new Date(now.getTime() + missing * regenMin * 60000);
-  return fullTime.toLocaleString();
+  return {
+    updatedCurrent,
+    fullTime: fullTime.toLocaleString(),
+  };
 }
 
 function App() {
   const [values, setValues] = useState(() => {
-    const saved = localStorage.getItem("stamina-values");
+    const saved = localStorage.getItem("stamina-values-with-time");
     return saved
       ? JSON.parse(saved)
       : games.reduce((acc, game) => {
-          acc[game.name] = "";
+          acc[game.name] = { value: "", timestamp: new Date().toISOString() };
           return acc;
         }, {});
   });
 
   const handleChange = (gameName, value) => {
-    setValues({ ...values, [gameName]: value });
+    const now = new Date().toISOString();
+    setValues({
+      ...values,
+      [gameName]: {
+        value,
+        timestamp: now,
+      },
+    });
   };
 
   useEffect(() => {
-    localStorage.setItem("stamina-values", JSON.stringify(values));
+    localStorage.setItem("stamina-values-with-time", JSON.stringify(values));
   }, [values]);
 
   return (
@@ -59,11 +72,21 @@ function App() {
       <h1>Multi-Game Stamina Tracker</h1>
       <div style={{ display: "grid", gap: "1rem" }}>
         {games.map((game) => {
-          const current = parseInt(values[game.name]);
-          const fullTime =
-            !isNaN(current) && current < game.max
-              ? calculateFullTime(current, game.max, game.regenMin)
-              : null;
+          const saved = values[game.name];
+          const parsed = parseInt(saved?.value);
+          const lastUpdated = saved?.timestamp;
+
+          let display = null;
+
+          if (!isNaN(parsed) && parsed < game.max && lastUpdated) {
+            const result = calculateFullTime(parsed, game.max, game.regenMin, lastUpdated);
+            display = (
+              <>
+                <p>Current (est.): {result.updatedCurrent}</p>
+                <p>Full at: {result.fullTime}</p>
+              </>
+            );
+          }
 
           return (
             <div key={game.name} style={{ border: "1px solid #ccc", borderRadius: "8px", padding: "1rem" }}>
@@ -72,12 +95,12 @@ function App() {
                 <input
                   type="number"
                   placeholder={`Current (max ${game.max})`}
-                  value={values[game.name]}
+                  value={saved?.value}
                   onChange={(e) => handleChange(game.name, e.target.value)}
                   style={{ marginLeft: "1rem", padding: "0.5rem" }}
                 />
               </label>
-              {fullTime && <p>Full at: {fullTime}</p>}
+              {display}
             </div>
           );
         })}
