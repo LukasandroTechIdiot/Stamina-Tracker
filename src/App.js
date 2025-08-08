@@ -28,7 +28,6 @@ const games = [
   },
 ];
 
-// Compute fullAt based on value and regen time
 function calculateFullAt(current, max, regenMin, timestamp) {
   const missing = max - current;
   const fullAt = new Date(new Date(timestamp).getTime() + missing * regenMin * 60000);
@@ -62,7 +61,6 @@ function App() {
         },
       });
     } else {
-      // Clear entry if value is invalid
       setValues({
         ...values,
         [gameName]: {
@@ -107,10 +105,7 @@ function App() {
               </label>
 
               {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
-                <>
-                  <p>Entered at: {new Date(saved.timestamp).toLocaleString()}</p>
-                  <p>Full at: {new Date(saved.fullAt).toLocaleString()}</p>
-                </>
+                <p>Full at: {new Date(saved.fullAt).toLocaleString()}</p>
               )}
             </div>
           );
@@ -121,3 +116,4 @@ function App() {
 }
 
 export default App;
+
