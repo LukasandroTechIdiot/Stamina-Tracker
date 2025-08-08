@@ -33,7 +33,11 @@ function formatTimeUntil(fullAt, lang) {
 }
 
 function App() {
-  const [games, setGames] = useState(defaultGames);
+  const [games, setGames] = useState(() => {
+    const saved = localStorage.getItem("custom-games");
+    return saved ? JSON.parse(saved) : defaultGames;
+  });
+
   const [values, setValues] = useState(() => {
     const saved = localStorage.getItem("stamina-values");
     return saved
@@ -44,13 +48,10 @@ function App() {
         }, {});
   });
 
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("theme") || "light";
-  });
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
+  const [language, setLanguage] = useState(() => localStorage.getItem("language") || "en");
 
-  const [language, setLanguage] = useState(() => {
-    return localStorage.getItem("language") || "en";
-  });
+  const [newGame, setNewGame] = useState({ name: "", max: "", regenMin: "" });
 
   const isDark = theme === "dark";
   const isGerman = language === "de";
@@ -80,6 +81,26 @@ function App() {
         },
       });
     }
+  };
+
+  const handleAddGame = () => {
+    const { name, max, regenMin } = newGame;
+    if (!name || isNaN(max) || isNaN(regenMin)) return;
+    const gameObj = { name, max: parseInt(max), regenMin: parseInt(regenMin) };
+    const updated = [...games, gameObj];
+    setGames(updated);
+    localStorage.setItem("custom-games", JSON.stringify(updated));
+    setNewGame({ name: "", max: "", regenMin: "" });
+  };
+
+  const handleRemoveGame = (gameName) => {
+    const updatedGames = games.filter((g) => g.name !== gameName);
+    setGames(updatedGames);
+    localStorage.setItem("custom-games", JSON.stringify(updatedGames));
+
+    const updatedValues = { ...values };
+    delete updatedValues[gameName];
+    setValues(updatedValues);
   };
 
   const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
@@ -124,9 +145,31 @@ function App() {
         </div>
       </div>
 
+      <div style={{ marginTop: "2rem" }}>
+        <h3>{isGerman ? "Eigenes Spiel hinzufügen" : "Add Custom Game"}</h3>
+        <input
+          placeholder={isGerman ? "Name" : "Name"}
+          value={newGame.name}
+          onChange={(e) => setNewGame({ ...newGame, name: e.target.value })}
+        />
+        <input
+          placeholder={isGerman ? "Max" : "Max"}
+          type="number"
+          value={newGame.max}
+          onChange={(e) => setNewGame({ ...newGame, max: e.target.value })}
+        />
+        <input
+          placeholder={isGerman ? "Min / Punkt" : "Min per Point"}
+          type="number"
+          value={newGame.regenMin}
+          onChange={(e) => setNewGame({ ...newGame, regenMin: e.target.value })}
+        />
+        <button onClick={handleAddGame}>{isGerman ? "Hinzufügen" : "Add"}</button>
+      </div>
+
       <div style={{ display: "grid", gap: "1rem", marginTop: "2rem" }}>
         {games.map((game) => {
-          const saved = values[game.name];
+          const saved = values[game.name] || {};
           const parsed = parseInt(saved?.value);
 
           return (
@@ -144,7 +187,7 @@ function App() {
                 <input
                   type="number"
                   placeholder={`Max ${game.max}`}
-                  value={saved?.value}
+                  value={saved?.value || ""}
                   onChange={(e) => handleChange(game.name, e.target.value)}
                   style={{
                     marginLeft: "1rem",
@@ -156,6 +199,9 @@ function App() {
                   }}
                 />
               </label>
+              <button onClick={() => handleRemoveGame(game.name)} style={{ marginLeft: "1rem" }}>
+                ❌
+              </button>
 
               {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
                 <>
@@ -168,8 +214,7 @@ function App() {
                       hour: "2-digit",
                       minute: "2-digit",
                       hour12: false,
-                    })}{" "}
-                    Uhr
+                    })} Uhr
                   </p>
                   <p>{formatTimeUntil(saved.fullAt, language)}</p>
                 </>
