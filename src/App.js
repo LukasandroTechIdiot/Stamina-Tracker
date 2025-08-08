@@ -105,6 +105,16 @@ function App() {
     localStorage.setItem("language", language);
   }, [language]);
 
+  const moveGame = (index, direction) => {
+  const newGames = [...games];
+  const targetIndex = index + direction;
+
+  if (targetIndex < 0 || targetIndex >= games.length) return;
+
+  [newGames[index], newGames[targetIndex]] = [newGames[targetIndex], newGames[index]];
+  setGames(newGames);
+};
+
   return (
     <div
       style={{
