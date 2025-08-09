@@ -25,11 +25,9 @@ function formatTimeUntil(fullAt, lang) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  if (lang === "de") {
-    return `Voll in: ${hours} h ${minutes} min`;
-  } else {
-    return `Time until full: ${hours} h ${minutes} min`;
-  }
+  return lang === "de"
+    ? `Voll in: ${hours} h ${minutes} min`
+    : `Time until full: ${hours} h ${minutes} min`;
 }
 
 function App() {
@@ -48,13 +46,12 @@ function App() {
         }, {});
   });
 
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("theme") || "light";
-  });
-
-  const [language, setLanguage] = useState(() => {
-    return localStorage.getItem("language") || "en";
-  });
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
+  const [language, setLanguage] = useState(() => localStorage.getItem("language") || "en");
+  const [addingGame, setAddingGame] = useState(false);
+  const [newGameName, setNewGameName] = useState("");
+  const [newGameMax, setNewGameMax] = useState("");
+  const [newGameRegen, setNewGameRegen] = useState("");
 
   const isDark = theme === "dark";
   const isGerman = language === "de";
@@ -68,20 +65,12 @@ function App() {
       const fullAt = calculateFullAt(intValue, game.max, game.regenMin, now);
       setValues({
         ...values,
-        [gameName]: {
-          value: intValue,
-          timestamp: now,
-          fullAt,
-        },
+        [gameName]: { value: intValue, timestamp: now, fullAt },
       });
     } else {
       setValues({
         ...values,
-        [gameName]: {
-          value: "",
-          timestamp: "",
-          fullAt: "",
-        },
+        [gameName]: { value: "", timestamp: "", fullAt: "" },
       });
     }
   };
@@ -90,10 +79,28 @@ function App() {
     const newGames = [...games];
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= newGames.length) return;
-    const temp = newGames[index];
-    newGames[index] = newGames[newIndex];
-    newGames[newIndex] = temp;
+    [newGames[index], newGames[newIndex]] = [newGames[newIndex], newGames[index]];
     setGames(newGames);
+  };
+
+  const removeGame = (index) => {
+    const gameName = games[index].name;
+    const newGames = games.filter((_, i) => i !== index);
+    setGames(newGames);
+    const newValues = { ...values };
+    delete newValues[gameName];
+    setValues(newValues);
+  };
+
+  const addGame = () => {
+    if (!newGameName.trim() || !newGameMax || !newGameRegen) return;
+    const newGame = { name: newGameName.trim(), max: parseInt(newGameMax), regenMin: parseInt(newGameRegen) };
+    setGames([...games, newGame]);
+    setValues({ ...values, [newGame.name]: { value: "", timestamp: "", fullAt: "" } });
+    setAddingGame(false);
+    setNewGameName("");
+    setNewGameMax("");
+    setNewGameRegen("");
   };
 
   const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
@@ -107,21 +114,10 @@ function App() {
     setValues(resetValues);
   };
 
-  useEffect(() => {
-    localStorage.setItem("stamina-values", JSON.stringify(values));
-  }, [values]);
-
-  useEffect(() => {
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem("language", language);
-  }, [language]);
-
-  useEffect(() => {
-    localStorage.setItem("games", JSON.stringify(games));
-  }, [games]);
+  useEffect(() => localStorage.setItem("stamina-values", JSON.stringify(values)), [values]);
+  useEffect(() => localStorage.setItem("theme", theme), [theme]);
+  useEffect(() => localStorage.setItem("language", language), [language]);
+  useEffect(() => localStorage.setItem("games", JSON.stringify(games)), [games]);
 
   const arrowButtonStyle = {
     width: "36px",
@@ -175,7 +171,7 @@ function App() {
                 backgroundColor: isDark ? "#1e1e1e" : "#f9f9f9",
               }}
             >
-              {/* Left Side - Game Name + Input */}
+              {/* Left Side */}
               <div>
                 <label>
                   <strong style={{ fontSize: "1.2rem" }}>{game.name}</strong>
@@ -215,14 +211,57 @@ function App() {
                 )}
               </div>
 
-              {/* Right Side - Arrows */}
+              {/* Right Side - Arrows + Remove */}
               <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
                 <button style={arrowButtonStyle} onClick={() => moveGame(index, -1)}>▲</button>
+                <button style={arrowButtonStyle} onClick={() => removeGame(index)}>−</button>
                 <button style={arrowButtonStyle} onClick={() => moveGame(index, 1)}>▼</button>
               </div>
             </div>
           );
         })}
+
+        {/* Add Game Button */}
+        {addingGame ? (
+          <div style={{ padding: "1rem", border: `1px solid ${isDark ? "#444" : "#ccc"}`, borderRadius: "8px" }}>
+            <input
+              type="text"
+              placeholder={isGerman ? "Spielname" : "Game Name"}
+              value={newGameName}
+              onChange={(e) => setNewGameName(e.target.value)}
+              style={{ marginRight: "0.5rem" }}
+            />
+            <input
+              type="number"
+              placeholder={isGerman ? "Max" : "Max"}
+              value={newGameMax}
+              onChange={(e) => setNewGameMax(e.target.value)}
+              style={{ marginRight: "0.5rem" }}
+            />
+            <input
+              type="number"
+              placeholder={isGerman ? "Min/1" : "Min/1"}
+              value={newGameRegen}
+              onChange={(e) => setNewGameRegen(e.target.value)}
+              style={{ marginRight: "0.5rem" }}
+            />
+            <button onClick={addGame}>{isGerman ? "Hinzufügen" : "Add"}</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setAddingGame(true)}
+            style={{
+              padding: "0.8rem",
+              backgroundColor: isDark ? "#2a2a2a" : "#eee",
+              color: isDark ? "#fff" : "#000",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            ➕ {isGerman ? "Spiel hinzufügen" : "Add Game"}
+          </button>
+        )}
       </div>
     </div>
   );
