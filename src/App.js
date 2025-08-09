@@ -14,8 +14,7 @@ function calculateFullAt(current, max, regenMin, timestamp) {
   return fullAt.toISOString();
 }
 
-function formatTimeUntil(fullAt, lang) {
-  const now = new Date();
+function formatTimeUntil(fullAt, lang, now) {
   const future = new Date(fullAt);
   const diffMs = future - now;
 
@@ -25,9 +24,11 @@ function formatTimeUntil(fullAt, lang) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  return lang === "de"
-    ? `Voll in: ${hours} h ${minutes} min`
-    : `Time until full: ${hours} h ${minutes} min`;
+  if (lang === "de") {
+    return `Voll in: ${hours} h ${minutes} min`;
+  } else {
+    return `Time until full: ${hours} h ${minutes} min`;
+  }
 }
 
 function App() {
@@ -48,59 +49,34 @@ function App() {
 
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [language, setLanguage] = useState(() => localStorage.getItem("language") || "en");
-  const [addingGame, setAddingGame] = useState(false);
-  const [newGameName, setNewGameName] = useState("");
-  const [newGameMax, setNewGameMax] = useState("");
-  const [newGameRegen, setNewGameRegen] = useState("");
+  const [now, setNow] = useState(new Date());
 
   const isDark = theme === "dark";
   const isGerman = language === "de";
 
+  // Live timer update
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const handleChange = (gameName, value) => {
     const game = games.find((g) => g.name === gameName);
-    const now = new Date().toISOString();
+    const timestamp = new Date().toISOString();
     const intValue = parseInt(value);
 
     if (!isNaN(intValue) && intValue < game.max) {
-      const fullAt = calculateFullAt(intValue, game.max, game.regenMin, now);
-      setValues({
-        ...values,
-        [gameName]: { value: intValue, timestamp: now, fullAt },
-      });
+      const fullAt = calculateFullAt(intValue, game.max, game.regenMin, timestamp);
+      setValues((prev) => ({
+        ...prev,
+        [gameName]: { value: intValue, timestamp, fullAt },
+      }));
     } else {
-      setValues({
-        ...values,
+      setValues((prev) => ({
+        ...prev,
         [gameName]: { value: "", timestamp: "", fullAt: "" },
-      });
+      }));
     }
-  };
-
-  const moveGame = (index, direction) => {
-    const newGames = [...games];
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= newGames.length) return;
-    [newGames[index], newGames[newIndex]] = [newGames[newIndex], newGames[index]];
-    setGames(newGames);
-  };
-
-  const removeGame = (index) => {
-    const gameName = games[index].name;
-    const newGames = games.filter((_, i) => i !== index);
-    setGames(newGames);
-    const newValues = { ...values };
-    delete newValues[gameName];
-    setValues(newValues);
-  };
-
-  const addGame = () => {
-    if (!newGameName.trim() || !newGameMax || !newGameRegen) return;
-    const newGame = { name: newGameName.trim(), max: parseInt(newGameMax), regenMin: parseInt(newGameRegen) };
-    setGames([...games, newGame]);
-    setValues({ ...values, [newGame.name]: { value: "", timestamp: "", fullAt: "" } });
-    setAddingGame(false);
-    setNewGameName("");
-    setNewGameMax("");
-    setNewGameRegen("");
   };
 
   const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
@@ -114,31 +90,42 @@ function App() {
     setValues(resetValues);
   };
 
+  const moveGame = (index, direction) => {
+    const newGames = [...games];
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= games.length) return;
+    [newGames[index], newGames[targetIndex]] = [newGames[targetIndex], newGames[index]];
+    setGames(newGames);
+  };
+
+  const removeGame = (index) => {
+    const gameName = games[index].name;
+    const newGames = games.filter((_, i) => i !== index);
+    setGames(newGames);
+    setValues((prev) => {
+      const newValues = { ...prev };
+      delete newValues[gameName];
+      return newValues;
+    });
+  };
+
+  const addGame = () => {
+    const name = prompt(isGerman ? "Name des Spiels:" : "Game name:");
+    const max = parseInt(prompt(isGerman ? "Maximale Ausdauer:" : "Max stamina:"));
+    const regenMin = parseInt(prompt(isGerman ? "Regeneration (Minuten):" : "Regen time (minutes):"));
+    if (!name || isNaN(max) || isNaN(regenMin)) return;
+
+    setGames((prev) => [...prev, { name, max, regenMin }]);
+    setValues((prev) => ({
+      ...prev,
+      [name]: { value: "", timestamp: "", fullAt: "" },
+    }));
+  };
+
   useEffect(() => localStorage.setItem("stamina-values", JSON.stringify(values)), [values]);
   useEffect(() => localStorage.setItem("theme", theme), [theme]);
   useEffect(() => localStorage.setItem("language", language), [language]);
   useEffect(() => localStorage.setItem("games", JSON.stringify(games)), [games]);
-
-  const arrowButtonStyle = {
-    width: "36px",
-    height: "36px",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: isDark ? "#444" : "#ddd",
-    color: isDark ? "#fff" : "#000",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontSize: "18px",
-    fontWeight: "bold",
-    transition: "transform 0.15s ease, background-color 0.15s ease",
-  };
-
-  const arrowHoverStyle = {
-    backgroundColor: isDark ? "#555" : "#ccc",
-    transform: "scale(1.1)",
-  };
 
   return (
     <div
@@ -168,19 +155,19 @@ function App() {
             <div
               key={game.name}
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
                 border: `1px solid ${isDark ? "#444" : "#ccc"}`,
                 borderRadius: "8px",
                 padding: "1rem",
                 backgroundColor: isDark ? "#1e1e1e" : "#f9f9f9",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              {/* Left Side */}
+              {/* Left side: Game info */}
               <div>
                 <label>
-                  <strong style={{ fontSize: "1.2rem" }}>{game.name}</strong>
+                  <strong style={{ fontSize: "1.1rem" }}>{game.name}</strong>
                   <input
                     type="number"
                     placeholder={`Max ${game.max}`}
@@ -188,19 +175,18 @@ function App() {
                     onChange={(e) => handleChange(game.name, e.target.value)}
                     style={{
                       marginLeft: "1rem",
-                      padding: "0.6rem",
+                      padding: "0.5rem",
                       backgroundColor: isDark ? "#2a2a2a" : "#fff",
                       color: isDark ? "#fff" : "#000",
                       border: `1px solid ${isDark ? "#555" : "#ccc"}`,
                       borderRadius: "4px",
-                      fontSize: "1rem",
                     }}
                   />
                 </label>
 
                 {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
                   <>
-                    <p style={{ marginTop: "0.5rem" }}>
+                    <p style={{ margin: "0.3rem 0 0 0" }}>
                       {isGerman ? "Voll um: " : "Full at: "}
                       {new Date(saved.fullAt).toLocaleString("de-DE", {
                         day: "2-digit",
@@ -212,80 +198,79 @@ function App() {
                       })}{" "}
                       Uhr
                     </p>
-                    <p>{formatTimeUntil(saved.fullAt, language)}</p>
+                    <p style={{ margin: "0.2rem 0 0 0" }}>
+                      {formatTimeUntil(saved.fullAt, language, now)}
+                    </p>
                   </>
                 )}
               </div>
 
-              {/* Right Side - Arrows + Remove */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                {["▲", "−", "▼"].map((symbol, btnIndex) => (
-                  <button
-                    key={btnIndex}
-                    style={arrowButtonStyle}
-                    onMouseEnter={(e) =>
-                      Object.assign(e.target.style, arrowHoverStyle)
-                    }
-                    onMouseLeave={(e) =>
-                      Object.assign(e.target.style, arrowButtonStyle)
-                    }
-                    onClick={() =>
-                      symbol === "▲"
-                        ? moveGame(index, -1)
-                        : symbol === "▼"
-                        ? moveGame(index, 1)
-                        : removeGame(index)
-                    }
-                  >
-                    {symbol}
-                  </button>
-                ))}
+              {/* Right side: controls */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                <button
+                  onClick={() => moveGame(index, -1)}
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    backgroundColor: isDark ? "#444" : "#ddd",
+                    color: "#000",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => removeGame(index)}
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    backgroundColor: "#b33",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✖
+                </button>
+                <button
+                  onClick={() => moveGame(index, 1)}
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    backgroundColor: isDark ? "#444" : "#ddd",
+                    color: "#000",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ▼
+                </button>
               </div>
             </div>
           );
         })}
 
-        {/* Add Game Button */}
-        {addingGame ? (
-          <div style={{ padding: "1rem", border: `1px solid ${isDark ? "#444" : "#ccc"}`, borderRadius: "8px" }}>
-            <input
-              type="text"
-              placeholder={isGerman ? "Spielname" : "Game Name"}
-              value={newGameName}
-              onChange={(e) => setNewGameName(e.target.value)}
-              style={{ marginRight: "0.5rem" }}
-            />
-            <input
-              type="number"
-              placeholder={isGerman ? "Max" : "Max"}
-              value={newGameMax}
-              onChange={(e) => setNewGameMax(e.target.value)}
-              style={{ marginRight: "0.5rem" }}
-            />
-            <input
-              type="number"
-              placeholder={isGerman ? "Min/1" : "Min/1"}
-              value={newGameRegen}
-              onChange={(e) => setNewGameRegen(e.target.value)}
-              style={{ marginRight: "0.5rem" }}
-            />
-            <button onClick={addGame}>{isGerman ? "Hinzufügen" : "Add"}</button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setAddingGame(true)}
-            style={{
-              padding: "0.8rem",
-              backgroundColor: isDark ? "#2a2a2a" : "#eee",
-              color: isDark ? "#fff" : "#000",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            ➕ {isGerman ? "Spiel hinzufügen" : "Add Game"}
-          </button>
-        )}
+        {/* Add game button */}
+        <button
+          onClick={addGame}
+          style={{
+            width: "100%",
+            height: "48px",
+            backgroundColor: isDark ? "#444" : "#ddd",
+            color: "#000",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+          }}
+          onMouseOver={(e) => (e.target.style.backgroundColor = isDark ? "#555" : "#ccc")}
+          onMouseOut={(e) => (e.target.style.backgroundColor = isDark ? "#444" : "#ddd")}
+        >
+          ➕ {isGerman ? "Spiel hinzufügen" : "Add Game"}
+        </button>
       </div>
     </div>
   );
