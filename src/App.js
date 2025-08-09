@@ -132,6 +132,12 @@ function App() {
     cursor: "pointer",
     fontSize: "18px",
     fontWeight: "bold",
+    transition: "transform 0.15s ease, background-color 0.15s ease",
+  };
+
+  const arrowHoverStyle = {
+    backgroundColor: isDark ? "#555" : "#ccc",
+    transform: "scale(1.1)",
   };
 
   return (
@@ -213,9 +219,27 @@ function App() {
 
               {/* Right Side - Arrows + Remove */}
               <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                <button style={arrowButtonStyle} onClick={() => moveGame(index, -1)}>▲</button>
-                <button style={arrowButtonStyle} onClick={() => removeGame(index)}>−</button>
-                <button style={arrowButtonStyle} onClick={() => moveGame(index, 1)}>▼</button>
+                {["▲", "−", "▼"].map((symbol, btnIndex) => (
+                  <button
+                    key={btnIndex}
+                    style={arrowButtonStyle}
+                    onMouseEnter={(e) =>
+                      Object.assign(e.target.style, arrowHoverStyle)
+                    }
+                    onMouseLeave={(e) =>
+                      Object.assign(e.target.style, arrowButtonStyle)
+                    }
+                    onClick={() =>
+                      symbol === "▲"
+                        ? moveGame(index, -1)
+                        : symbol === "▼"
+                        ? moveGame(index, 1)
+                        : removeGame(index)
+                    }
+                  >
+                    {symbol}
+                  </button>
+                ))}
               </div>
             </div>
           );
