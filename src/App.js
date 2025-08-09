@@ -34,7 +34,7 @@ function formatTimeUntil(fullAt, lang) {
 
 function App() {
   const [games, setGames] = useState(() => {
-    const saved = localStorage.getItem("game-order");
+    const saved = localStorage.getItem("games");
     return saved ? JSON.parse(saved) : defaultGames;
   });
 
@@ -48,8 +48,13 @@ function App() {
         }, {});
   });
 
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
-  const [language, setLanguage] = useState(() => localStorage.getItem("language") || "en");
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "light";
+  });
+
+  const [language, setLanguage] = useState(() => {
+    return localStorage.getItem("language") || "en";
+  });
 
   const isDark = theme === "dark";
   const isGerman = language === "de";
@@ -83,11 +88,11 @@ function App() {
 
   const moveGame = (index, direction) => {
     const newGames = [...games];
-    const targetIndex = index + direction;
-
-    if (targetIndex < 0 || targetIndex >= games.length) return;
-
-    [newGames[index], newGames[targetIndex]] = [newGames[targetIndex], newGames[index]];
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= newGames.length) return;
+    const temp = newGames[index];
+    newGames[index] = newGames[newIndex];
+    newGames[newIndex] = temp;
     setGames(newGames);
   };
 
@@ -115,7 +120,7 @@ function App() {
   }, [language]);
 
   useEffect(() => {
-    localStorage.setItem("game-order", JSON.stringify(games));
+    localStorage.setItem("games", JSON.stringify(games));
   }, [games]);
 
   return (
@@ -146,51 +151,59 @@ function App() {
             <div
               key={game.name}
               style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 border: `1px solid ${isDark ? "#444" : "#ccc"}`,
                 borderRadius: "8px",
                 padding: "1rem",
                 backgroundColor: isDark ? "#1e1e1e" : "#f9f9f9",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", marginBottom: "0.5rem", gap: "0.5rem" }}>
-                <button onClick={() => moveGame(index, -1)} disabled={index === 0}>↑</button>
-                <button onClick={() => moveGame(index, 1)} disabled={index === games.length - 1}>↓</button>
-                <strong style={{ fontSize: "1.1rem" }}>{game.name}</strong>
-              </div>
-              <label>
-                <input
-                  type="number"
-                  placeholder={`Max ${game.max}`}
-                  value={saved?.value}
-                  onChange={(e) => handleChange(game.name, e.target.value)}
-                  style={{
-                    marginLeft: "0.5rem",
-                    padding: "0.5rem",
-                    backgroundColor: isDark ? "#2a2a2a" : "#fff",
-                    color: isDark ? "#fff" : "#000",
-                    border: `1px solid ${isDark ? "#555" : "#ccc"}`,
-                    borderRadius: "4px",
-                  }}
-                />
-              </label>
+              {/* Left Side - Game Name + Input */}
+              <div>
+                <label>
+                  <strong style={{ fontSize: "1.1rem" }}>{game.name}</strong>
+                  <input
+                    type="number"
+                    placeholder={`Max ${game.max}`}
+                    value={saved?.value}
+                    onChange={(e) => handleChange(game.name, e.target.value)}
+                    style={{
+                      marginLeft: "1rem",
+                      padding: "0.5rem",
+                      backgroundColor: isDark ? "#2a2a2a" : "#fff",
+                      color: isDark ? "#fff" : "#000",
+                      border: `1px solid ${isDark ? "#555" : "#ccc"}`,
+                      borderRadius: "4px",
+                    }}
+                  />
+                </label>
 
-              {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
-                <>
-                  <p style={{ marginTop: "0.5rem" }}>
-                    {isGerman ? "Voll um: " : "Full at: "}
-                    {new Date(saved.fullAt).toLocaleString("de-DE", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: false,
-                    })}{" "}
-                    Uhr
-                  </p>
-                  <p style={{ marginTop: "-0.25rem" }}>{formatTimeUntil(saved.fullAt, language)}</p>
-                </>
-              )}
+                {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
+                  <>
+                    <p style={{ marginTop: "0.5rem" }}>
+                      {isGerman ? "Voll um: " : "Full at: "}
+                      {new Date(saved.fullAt).toLocaleString("de-DE", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })}{" "}
+                      Uhr
+                    </p>
+                    <p>{formatTimeUntil(saved.fullAt, language)}</p>
+                  </>
+                )}
+              </div>
+
+              {/* Right Side - Arrows */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <button onClick={() => moveGame(index, -1)}>⬆️</button>
+                <button onClick={() => moveGame(index, 1)}>⬇️</button>
+              </div>
             </div>
           );
         })}
