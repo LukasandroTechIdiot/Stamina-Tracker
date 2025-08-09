@@ -123,6 +123,21 @@ function App() {
     localStorage.setItem("games", JSON.stringify(games));
   }, [games]);
 
+  const arrowButtonStyle = {
+    width: "36px",
+    height: "36px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: isDark ? "#444" : "#ddd",
+    color: isDark ? "#fff" : "#000",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "18px",
+    fontWeight: "bold",
+  };
+
   return (
     <div
       style={{
@@ -163,7 +178,7 @@ function App() {
               {/* Left Side - Game Name + Input */}
               <div>
                 <label>
-                  <strong style={{ fontSize: "1.1rem" }}>{game.name}</strong>
+                  <strong style={{ fontSize: "1.2rem" }}>{game.name}</strong>
                   <input
                     type="number"
                     placeholder={`Max ${game.max}`}
@@ -171,11 +186,12 @@ function App() {
                     onChange={(e) => handleChange(game.name, e.target.value)}
                     style={{
                       marginLeft: "1rem",
-                      padding: "0.5rem",
+                      padding: "0.6rem",
                       backgroundColor: isDark ? "#2a2a2a" : "#fff",
                       color: isDark ? "#fff" : "#000",
                       border: `1px solid ${isDark ? "#555" : "#ccc"}`,
                       borderRadius: "4px",
+                      fontSize: "1rem",
                     }}
                   />
                 </label>
@@ -200,9 +216,9 @@ function App() {
               </div>
 
               {/* Right Side - Arrows */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                <button onClick={() => moveGame(index, -1)}>⬆️</button>
-                <button onClick={() => moveGame(index, 1)}>⬇️</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                <button style={arrowButtonStyle} onClick={() => moveGame(index, -1)}>▲</button>
+                <button style={arrowButtonStyle} onClick={() => moveGame(index, 1)}>▼</button>
               </div>
             </div>
           );
