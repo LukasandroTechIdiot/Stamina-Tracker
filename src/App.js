@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const predefinedGames = [
   { name: "Genshin Impact", max: 200, regenMin: 8 },
@@ -10,37 +10,204 @@ const predefinedGames = [
 
 function calculateFullAt(current, max, regenMin, timestamp) {
   const missing = max - current;
-  return new Date(new Date(timestamp).getTime() + missing * regenMin * 60000).toISOString();
+  const fullAt = new Date(new Date(timestamp).getTime() + missing * regenMin * 60000);
+  return fullAt.toISOString();
 }
 
 function formatTimeUntil(fullAt, lang) {
   const now = new Date();
-  const diffMs = new Date(fullAt) - now;
+  const future = new Date(fullAt);
+  const diffMs = future - now;
+
   if (diffMs <= 0) return lang === "de" ? "Voll" : "Full";
+
   const totalMinutes = Math.floor(diffMs / 60000);
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  return lang === "de"
-    ? `Voll in: ${h} h ${m} min`
-    : `Time until full: ${h} h ${m} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (lang === "de") {
+    return `Voll in: ${hours} h ${minutes} min`;
+  } else {
+    return `Time until full: ${hours} h ${minutes} min`;
+  }
 }
 
 export default function App() {
   const [games, setGames] = useState(() => {
-    const saved = localStorage.getItem("games");
+    const saved = localStorage.getItem("games-list");
     return saved ? JSON.parse(saved) : [];
   });
-  const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
-  const [language, setLanguage] = useState(localStorage.getItem("language") || "en");
+
+  const [values, setValues] = useState(() => {
+    const saved = localStorage.getItem("stamina-values");
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
+  const [language, setLanguage] = useState(() => localStorage.getItem("language") || "en");
+
   const [editingImage, setEditingImage] = useState(null);
-  const [showAddGameModal, setShowAddGameModal] = useState(false);
+  const [dragData, setDragData] = useState({});
+  const [zoomData, setZoomData] = useState({});
 
   const isDark = theme === "dark";
   const isGerman = language === "de";
 
+  const handleChange = (gameName, value) => {
+    const game = games.find((g) => g.name === gameName);
+    const now = new Date().toISOString();
+    const intValue = parseInt(value);
+
+    if (!isNaN(intValue) && intValue < game.max) {
+      const fullAt = calculateFullAt(intValue, game.max, game.regenMin, now);
+      setValues({
+        ...values,
+        [gameName]: {
+          ...values[gameName],
+          value: intValue,
+          timestamp: now,
+          fullAt,
+        },
+      });
+    } else {
+      setValues({
+        ...values,
+        [gameName]: {
+          ...values[gameName],
+          value: "",
+          timestamp: "",
+          fullAt: "",
+        },
+      });
+    }
+  };
+
+  const handleMove = (index, direction) => {
+    const newGames = [...games];
+    const targetIndex = index + direction;
+    if (targetIndex >= 0 && targetIndex < newGames.length) {
+      const temp = newGames[index];
+      newGames[index] = newGames[targetIndex];
+      newGames[targetIndex] = temp;
+      setGames(newGames);
+    }
+  };
+
+  const handleRemove = (name) => {
+    const newGames = games.filter((g) => g.name !== name);
+    setGames(newGames);
+    const newValues = { ...values };
+    delete newValues[name];
+    setValues(newValues);
+  };
+
+  const handleAddGame = () => {
+    const choice = prompt(
+      "Choose game:\n" +
+        predefinedGames.map((g, i) => `${i + 1}. ${g.name} (${g.max}, ${g.regenMin}min)`).join("\n") +
+        `\n${predefinedGames.length + 1}. Custom Game`
+    );
+    if (!choice) return;
+    const idx = parseInt(choice) - 1;
+    let newGame;
+    if (idx >= 0 && idx < predefinedGames.length) {
+      newGame = predefinedGames[idx];
+    } else if (idx === predefinedGames.length) {
+      const name = prompt("Enter game name:");
+      const max = parseInt(prompt("Enter max stamina:"));
+      const regenMin = parseInt(prompt("Enter regen minutes per point:"));
+      newGame = { name, max, regenMin };
+    }
+    if (newGame) setGames([...games, newGame]);
+  };
+
+  const handleImageUpload = (gameName) => {
+    const url = prompt("Enter image URL or leave blank to upload:");
+    if (url) {
+      saveImageData(gameName, url);
+    } else {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = () => {
+          saveImageData(gameName, reader.result);
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    }
+  };
+
+  const saveImageData = (gameName, src) => {
+    setValues({
+      ...values,
+      [gameName]: {
+        ...values[gameName],
+        image: src,
+      },
+    });
+    setEditingImage(gameName);
+  };
+
+  const handleDragStart = (e, gameName) => {
+    setDragData({
+      ...dragData,
+      [gameName]: {
+        startX: e.clientX,
+        startY: e.clientY,
+        offsetX: values[gameName]?.offsetX || 0,
+        offsetY: values[gameName]?.offsetY || 0,
+      },
+    });
+  };
+
+  const handleDragMove = (e, gameName) => {
+    if (editingImage !== gameName) return;
+    if (!dragData[gameName]) return;
+    const dx = e.clientX - dragData[gameName].startX;
+    const dy = e.clientY - dragData[gameName].startY;
+    setValues((prev) => ({
+      ...prev,
+      [gameName]: {
+        ...prev[gameName],
+        offsetX: dragData[gameName].offsetX + dx,
+        offsetY: dragData[gameName].offsetY + dy,
+      },
+    }));
+    setDragData({
+      ...dragData,
+      [gameName]: {
+        ...dragData[gameName],
+        startX: e.clientX,
+        startY: e.clientY,
+      },
+    });
+  };
+
+  const handleZoomChange = (gameName, zoom) => {
+    setValues((prev) => ({
+      ...prev,
+      [gameName]: {
+        ...prev[gameName],
+        zoom,
+      },
+    }));
+  };
+
+  const handleSavePosition = (gameName) => {
+    setEditingImage(null);
+  };
+
   useEffect(() => {
-    localStorage.setItem("games", JSON.stringify(games));
+    localStorage.setItem("games-list", JSON.stringify(games));
   }, [games]);
+
+  useEffect(() => {
+    localStorage.setItem("stamina-values", JSON.stringify(values));
+  }, [values]);
 
   useEffect(() => {
     localStorage.setItem("theme", theme);
@@ -50,247 +217,109 @@ export default function App() {
     localStorage.setItem("language", language);
   }, [language]);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setGames((prev) => [...prev]);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const handleChange = (index, value) => {
-    const g = games[index];
-    const now = new Date().toISOString();
-    const intValue = parseInt(value);
-    const updated = [...games];
-    if (!isNaN(intValue) && intValue < g.max) {
-      updated[index] = {
-        ...g,
-        value: intValue,
-        timestamp: now,
-        fullAt: calculateFullAt(intValue, g.max, g.regenMin, now),
-      };
-    } else {
-      updated[index] = { ...g, value: "", timestamp: "", fullAt: "" };
-    }
-    setGames(updated);
-  };
-
-  const moveGame = (index, dir) => {
-    const updated = [...games];
-    const targetIndex = index + dir;
-    if (targetIndex < 0 || targetIndex >= updated.length) return;
-    const temp = updated[index];
-    updated[index] = updated[targetIndex];
-    updated[targetIndex] = temp;
-    setGames(updated);
-  };
-
-  const removeGame = (index) => {
-    const updated = [...games];
-    updated.splice(index, 1);
-    setGames(updated);
-  };
-
-  const addPredefinedGame = (g) => {
-    setGames([...games, { ...g, value: "", timestamp: "", fullAt: "" }]);
-    setShowAddGameModal(false);
-  };
-
-  const addCustomGame = () => {
-    const name = prompt("Enter game name:");
-    const max = parseInt(prompt("Enter max stamina:"), 10);
-    const regen = parseInt(prompt("Enter regen minutes per point:"), 10);
-    if (name && max > 0 && regen > 0) {
-      setGames([...games, { name, max, regenMin: regen, value: "", timestamp: "", fullAt: "" }]);
-    }
-    setShowAddGameModal(false);
-  };
-
-  const openImageEditor = (index) => {
-    setEditingImage(index);
-  };
-
-  const saveImage = (url, pos) => {
-    const updated = [...games];
-    updated[editingImage].image = url;
-    updated[editingImage].imagePos = pos;
-    setGames(updated);
-    setEditingImage(null);
-  };
-
   return (
     <div
       style={{
         padding: "2rem",
-        backgroundColor: isDark ? "#121212" : "#fff",
-        color: isDark ? "#fff" : "#000",
+        backgroundColor: isDark ? "#121212" : "#ffffff",
+        color: isDark ? "#ffffff" : "#000000",
         minHeight: "100vh",
       }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1>{isGerman ? "Stamina-Tracker" : "Stamina Tracker"}</h1>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <button onClick={() => setTheme(isDark ? "light" : "dark")}>
-            🌓 {isDark ? "Light" : "Dark"}
-          </button>
-          <button onClick={() => setLanguage(isGerman ? "en" : "de")}>
-            🌐 {isGerman ? "EN" : "DE"}
-          </button>
-          <button onClick={() => setShowAddGameModal(true)}>
-            {isGerman ? "Spiel hinzufügen" : "Add Game"}
-          </button>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(48%, 1fr))", gap: "1rem" }}>
-        {games.map((g, index) => (
-          <div
-            key={index}
-            style={{
-              border: `1px solid ${isDark ? "#444" : "#ccc"}`,
-              borderRadius: "8px",
-              padding: "0.5rem",
-              backgroundColor: isDark ? "#1e1e1e" : "#f9f9f9",
-              backgroundImage: g.image ? `url(${g.image})` : "none",
-              backgroundSize: "cover",
-              backgroundPosition: g.imagePos || "center",
-              minHeight: "150px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem"
-            }}
-          >
-            {/* Row 1 */}
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <strong>{g.name}</strong>
-              <div style={{ display: "flex", gap: "0.25rem" }}>
-                <button onClick={() => removeGame(index)}>❌</button>
-                <button onClick={() => moveGame(index, -1)}>⬆️</button>
-              </div>
-            </div>
-
-            {/* Row 2 */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <input
-                type="number"
-                placeholder={`Max ${g.max}`}
-                value={g.value || ""}
-                onChange={(e) => handleChange(index, e.target.value)}
-                style={{
-                  width: "60%",
-                  padding: "0.5rem",
-                  backgroundColor: isDark ? "#2a2a2a" : "#fff",
-                  color: isDark ? "#fff" : "#000",
-                  border: `1px solid ${isDark ? "#555" : "#ccc"}`,
-                  borderRadius: "4px",
-                }}
-              />
-              <div style={{ display: "flex", gap: "0.25rem" }}>
-                <button onClick={() => openImageEditor(index)}>🖼</button>
-                <button onClick={() => moveGame(index, 1)}>⬇️</button>
-              </div>
-            </div>
-
-            {/* Row 3 */}
-            {g.fullAt && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <p>
-                  {isGerman ? "Voll um: " : "Full at: "}
-                  {new Date(g.fullAt).toLocaleString("de-DE", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  })}{" "}
-                  Uhr
-                </p>
-                <p>{formatTimeUntil(g.fullAt, language)}</p>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Add Game Modal */}
-      {showAddGameModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0, left: 0, right: 0, bottom: 0,
-            background: "rgba(0,0,0,0.8)",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            color: "#fff", padding: "1rem"
-          }}
-        >
-          <h2>{isGerman ? "Spiel auswählen" : "Select a Game"}</h2>
-          {predefinedGames.map((g, i) => (
-            <button
-              key={i}
-              onClick={() => addPredefinedGame(g)}
-              style={{ margin: "0.25rem", padding: "0.5rem 1rem" }}
-            >
-              {g.name} ({g.max}, {g.regenMin}m)
-            </button>
-          ))}
-          <button
-            onClick={addCustomGame}
-            style={{ margin: "0.5rem", padding: "0.5rem 1rem" }}
-          >
-            ➕ {isGerman ? "Eigenes Spiel" : "Custom Game"}
-          </button>
-          <button
-            onClick={() => setShowAddGameModal(false)}
-            style={{ marginTop: "1rem" }}
-          >
-            {isGerman ? "Abbrechen" : "Cancel"}
-          </button>
-        </div>
-      )}
-
-      {editingImage !== null && (
-        <ImageEditor
-          game={games[editingImage]}
-          onSave={saveImage}
-          onCancel={() => setEditingImage(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-function ImageEditor({ game, onSave, onCancel }) {
-  const [url, setUrl] = useState(game.image || "");
-  const [pos, setPos] = useState(game.imagePos || "center");
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0, left: 0, right: 0, bottom: 0,
-        background: "rgba(0,0,0,0.8)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        color: "#fff", padding: "1rem"
+      onMouseMove={(e) => {
+        if (editingImage) handleDragMove(e, editingImage);
       }}
     >
-      <input
-        type="text"
-        placeholder="Image URL"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        style={{ width: "80%", padding: "0.5rem", marginBottom: "0.5rem" }}
-      />
-      <input
-        type="text"
-        placeholder="Background position (e.g., top, center, 50% 50%)"
-        value={pos}
-        onChange={(e) => setPos(e.target.value)}
-        style={{ width: "80%", padding: "0.5rem", marginBottom: "0.5rem" }}
-      />
-      <div style={{ display: "flex", gap: "0.5rem" }}>
-        <button onClick={() => onSave(url, pos)}>Save</button>
-        <button onClick={onCancel}>Cancel</button>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+        <h1>{isGerman ? "Stamina-Tracker" : "Stamina Tracker"}</h1>
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <button onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}>
+            🌓 {isDark ? "Light" : "Dark"}
+          </button>
+          <button onClick={() => setLanguage((l) => (l === "en" ? "de" : "en"))}>
+            🌐 {isGerman ? "EN" : "DE"}
+          </button>
+          <button onClick={handleAddGame}>{isGerman ? "Spiel hinzufügen" : "Add Game"}</button>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(45%, 1fr))", gap: "1rem", marginTop: "2rem" }}>
+        {games.map((game, index) => {
+          const saved = values[game.name] || {};
+          const parsed = parseInt(saved?.value);
+          return (
+            <div
+              key={game.name}
+              style={{
+                border: `1px solid ${isDark ? "#444" : "#ccc"}`,
+                borderRadius: "8px",
+                padding: "1rem",
+                backgroundColor: isDark ? "#1e1e1e" : "#f9f9f9",
+                position: "relative",
+                overflow: "hidden",
+                height: "200px",
+              }}
+            >
+              {saved.image && (
+                <img
+                  src={saved.image}
+                  alt=""
+                  style={{
+                    position: "absolute",
+                    top: saved.offsetY || 0,
+                    left: saved.offsetX || 0,
+                    transform: `scale(${saved.zoom || 1})`,
+                    transformOrigin: "top left",
+                    pointerEvents: editingImage === game.name ? "none" : "auto",
+                  }}
+                  draggable={false}
+                />
+              )}
+
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <strong>{game.name}</strong>
+                <div>
+                  <button onClick={() => handleRemove(game.name)}>➖</button>
+                  <button onClick={() => handleMove(index, -1)}>⬆</button>
+                  <button onClick={() => handleMove(index, 1)}>⬇</button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.5rem" }}>
+                <input
+                  type="number"
+                  placeholder={`Max ${game.max}`}
+                  value={saved?.value || ""}
+                  onChange={(e) => handleChange(game.name, e.target.value)}
+                  style={{ width: "60%" }}
+                />
+                <button onClick={() => handleImageUpload(game.name)}>🖼</button>
+              </div>
+
+              {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
+                <>
+                  <p>{isGerman ? "Voll um: " : "Full at: "} 
+                    {new Date(saved.fullAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+                  </p>
+                  <p>{formatTimeUntil(saved.fullAt, language)}</p>
+                </>
+              )}
+
+              {editingImage === game.name && (
+                <div style={{ position: "absolute", bottom: "5px", left: "5px" }}>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2"
+                    step="0.01"
+                    value={saved.zoom || 1}
+                    onChange={(e) => handleZoomChange(game.name, parseFloat(e.target.value))}
+                  />
+                  <button onClick={() => handleSavePosition(game.name)}>✅</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
