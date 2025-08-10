@@ -33,6 +33,7 @@ export default function App() {
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
   const [language, setLanguage] = useState(localStorage.getItem("language") || "en");
   const [editingImage, setEditingImage] = useState(null);
+  const [showAddGameModal, setShowAddGameModal] = useState(false);
 
   const isDark = theme === "dark";
   const isGerman = language === "de";
@@ -90,27 +91,19 @@ export default function App() {
     setGames(updated);
   };
 
-  const addGame = () => {
-    const choice = prompt(
-      "Choose a game:\n" +
-        predefinedGames.map((g, i) => `${i + 1}. ${g.name} (${g.max}, ${g.regenMin}m)`).join("\n") +
-        "\nC. Custom Game"
-    );
-    if (!choice) return;
-    if (choice.toLowerCase() === "c") {
-      const name = prompt("Enter game name:");
-      const max = parseInt(prompt("Enter max stamina:"), 10);
-      const regen = parseInt(prompt("Enter regen minutes per point:"), 10);
-      if (name && max > 0 && regen > 0) {
-        setGames([...games, { name, max, regenMin: regen, value: "", timestamp: "", fullAt: "" }]);
-      }
-    } else {
-      const idx = parseInt(choice, 10) - 1;
-      if (predefinedGames[idx]) {
-        const g = predefinedGames[idx];
-        setGames([...games, { ...g, value: "", timestamp: "", fullAt: "" }]);
-      }
+  const addPredefinedGame = (g) => {
+    setGames([...games, { ...g, value: "", timestamp: "", fullAt: "" }]);
+    setShowAddGameModal(false);
+  };
+
+  const addCustomGame = () => {
+    const name = prompt("Enter game name:");
+    const max = parseInt(prompt("Enter max stamina:"), 10);
+    const regen = parseInt(prompt("Enter regen minutes per point:"), 10);
+    if (name && max > 0 && regen > 0) {
+      setGames([...games, { name, max, regenMin: regen, value: "", timestamp: "", fullAt: "" }]);
     }
+    setShowAddGameModal(false);
   };
 
   const openImageEditor = (index) => {
@@ -143,7 +136,9 @@ export default function App() {
           <button onClick={() => setLanguage(isGerman ? "en" : "de")}>
             🌐 {isGerman ? "EN" : "DE"}
           </button>
-          <button onClick={addGame}>{isGerman ? "Spiel hinzufügen" : "Add Game"}</button>
+          <button onClick={() => setShowAddGameModal(true)}>
+            {isGerman ? "Spiel hinzufügen" : "Add Game"}
+          </button>
         </div>
       </div>
 
@@ -162,7 +157,7 @@ export default function App() {
               minHeight: "150px",
               display: "flex",
               flexDirection: "column",
-              justifyContent: "space-between",
+              gap: "0.5rem"
             }}
           >
             {/* Row 1 */}
@@ -218,6 +213,43 @@ export default function App() {
         ))}
       </div>
 
+      {/* Add Game Modal */}
+      {showAddGameModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0,0,0,0.8)",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            color: "#fff", padding: "1rem"
+          }}
+        >
+          <h2>{isGerman ? "Spiel auswählen" : "Select a Game"}</h2>
+          {predefinedGames.map((g, i) => (
+            <button
+              key={i}
+              onClick={() => addPredefinedGame(g)}
+              style={{ margin: "0.25rem", padding: "0.5rem 1rem" }}
+            >
+              {g.name} ({g.max}, {g.regenMin}m)
+            </button>
+          ))}
+          <button
+            onClick={addCustomGame}
+            style={{ margin: "0.5rem", padding: "0.5rem 1rem" }}
+          >
+            ➕ {isGerman ? "Eigenes Spiel" : "Custom Game"}
+          </button>
+          <button
+            onClick={() => setShowAddGameModal(false)}
+            style={{ marginTop: "1rem" }}
+          >
+            {isGerman ? "Abbrechen" : "Cancel"}
+          </button>
+        </div>
+      )}
+
       {editingImage !== null && (
         <ImageEditor
           game={games[editingImage]}
@@ -263,4 +295,3 @@ function ImageEditor({ game, onSave, onCancel }) {
     </div>
   );
 }
-
