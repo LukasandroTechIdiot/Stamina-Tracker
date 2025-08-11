@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const defaultGames = [
+// --- All your constants and helper functions here ---
+const predefinedGames = [
   { name: "Genshin Impact", max: 200, regenMin: 8 },
   { name: "Honkai Star Rail", max: 300, regenMin: 6 },
   { name: "Haikyu Fly High", max: 200, regenMin: 5 },
@@ -32,31 +33,46 @@ function formatTimeUntil(fullAt, lang) {
   }
 }
 
+// --- Main App component ---
 export default function App() {
-  const [games, setGames] = useState([]);
-  const [values, setValues] = useState({});
+  const [games, setGames] = useState(() => {
+    const saved = localStorage.getItem("stamina-games");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [values, setValues] = useState(() => {
+    const saved = localStorage.getItem("stamina-values");
+    return saved ? JSON.parse(saved) : {};
+  });
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
   const [language, setLanguage] = useState(localStorage.getItem("language") || "en");
   const [selectingGame, setSelectingGame] = useState(false);
   const [editingImage, setEditingImage] = useState(null);
-  const [imageSettings, setImageSettings] = useState({});
-  const containerRefs = useRef({});
+  const [imageSettings, setImageSettings] = useState(() => {
+    const saved = localStorage.getItem("stamina-images");
+    return saved ? JSON.parse(saved) : {};
+  });
 
   const isDark = theme === "dark";
   const isGerman = language === "de";
 
+  // Save states
+  useEffect(() => {
+    localStorage.setItem("stamina-games", JSON.stringify(games));
+  }, [games]);
   useEffect(() => {
     localStorage.setItem("stamina-values", JSON.stringify(values));
   }, [values]);
-
   useEffect(() => {
     localStorage.setItem("theme", theme);
   }, [theme]);
-
   useEffect(() => {
     localStorage.setItem("language", language);
   }, [language]);
+  useEffect(() => {
+    localStorage.setItem("stamina-images", JSON.stringify(imageSettings));
+  }, [imageSettings]);
 
+  // Live update every second
   useEffect(() => {
     const interval = setInterval(() => {
       setValues((prev) => ({ ...prev }));
@@ -168,6 +184,7 @@ export default function App() {
         minHeight: "100vh",
       }}
     >
+      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <h1>{isGerman ? "Stamina-Tracker" : "Stamina Tracker"}</h1>
         <div style={{ display: "flex", gap: "1rem" }}>
@@ -176,6 +193,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Game Grid */}
       <div
         style={{
           display: "grid",
@@ -219,6 +237,7 @@ export default function App() {
                 />
               )}
 
+              {/* Row 1 */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 1 }}>
                 <strong>{game.name}</strong>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -227,6 +246,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Row 2 */}
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.5rem" }}>
                 <input
                   type="number"
@@ -248,6 +268,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Row 3 */}
               {!isNaN(parsed) && parsed < game.max && saved?.fullAt && (
                 <div style={{ marginTop: "0.5rem" }}>
                   <p>{isGerman ? "Voll um: " : "Full at: "}{new Date(saved.fullAt).toLocaleString()}</p>
@@ -255,6 +276,7 @@ export default function App() {
                 </div>
               )}
 
+              {/* Image Editor */}
               {editingImage === game.name && (
                 <div style={{ marginTop: "0.5rem" }}>
                   <input
@@ -277,9 +299,10 @@ export default function App() {
         })}
       </div>
 
+      {/* Add Game */}
       {selectingGame ? (
         <div style={{ marginTop: "1rem" }}>
-          {defaultGames.map((g) => (
+          {predefinedGames.map((g) => (
             <button key={g.name} onClick={() => addGame(g)} style={{ marginRight: "0.5rem" }}>
               {g.name} ({g.max}, {g.regenMin}m)
             </button>
@@ -293,4 +316,4 @@ export default function App() {
       )}
     </div>
   );
-}
+} // ✅ closes App component
